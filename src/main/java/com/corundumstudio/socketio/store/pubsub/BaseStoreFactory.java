@@ -54,9 +54,10 @@ public abstract class BaseStoreFactory implements StoreFactory {
         pubSubStore().subscribe(PubSubType.DISPATCH, new PubSubListener<DispatchMessage>() {
             @Override
             public void onMessage(DispatchMessage msg) {
-                String name = msg.getRoom();
-
-                namespacesHub.get(msg.getNamespace()).dispatch(name, msg.getPacket());
+                String room = msg.getRoom();
+                log.debug("==接收转发消息 Namespace:{} 房间：{},内容：{}",msg.getNamespace(),room,msg.getPacket().getData());
+                msg.getPacket().setNsp(msg.getNamespace());
+                namespacesHub.get(msg.getNamespace()).dispatch(room, msg.getPacket());
                 log.debug("{} packet: {}", PubSubType.DISPATCH, msg.getPacket());
             }
         }, DispatchMessage.class);

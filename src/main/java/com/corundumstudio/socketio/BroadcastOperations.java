@@ -21,6 +21,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Set;
 
 import com.corundumstudio.socketio.misc.IterableCollection;
@@ -36,17 +40,32 @@ import com.corundumstudio.socketio.store.pubsub.PubSubType;
  *
  */
 public class BroadcastOperations implements ClientOperations {
-
+	private Logger log = LoggerFactory.getLogger(BroadcastOperations.class);
     private final Iterable<SocketIOClient> clients;
     private final StoreFactory storeFactory;
 
+    private String room;
+    private String namespace;
     public BroadcastOperations(Iterable<SocketIOClient> clients, StoreFactory storeFactory) {
         super();
         this.clients = clients;
         this.storeFactory = storeFactory;
     }
-
+    public BroadcastOperations(String namespace,String room,Iterable<SocketIOClient> clients, StoreFactory storeFactory) {
+        super();
+        this.room=room;
+        this.clients = clients;
+        this.storeFactory = storeFactory;
+        this.namespace=namespace;
+    }
     private void dispatch(Packet packet) {
+    	log.debug("===消息子类型："+packet.getType());
+    	if(packet.getType()==PacketType.MESSAGE){
+    		log.debug("====接收自定义消息 namespace:{} 房间:{} 事件:{}...",packet.getNsp(),room,packet.getName());
+    		storeFactory.pubSubStore().publish(PubSubType.DISPATCH, new DispatchMessage(room, packet, namespace));
+    		return;
+    	}
+    	
         Map<String, Set<String>> namespaceRooms = new HashMap<String, Set<String>>();
         for (SocketIOClient socketIOClient : clients) {
             Namespace namespace = (Namespace)socketIOClient.getNamespace();
@@ -59,6 +78,8 @@ public class BroadcastOperations implements ClientOperations {
             }
             roomsList.addAll(rooms);
         }
+    	
+       
         for (Entry<String, Set<String>> entry : namespaceRooms.entrySet()) {
             for (String room : entry.getValue()) {
                 storeFactory.pubSubStore().publish(PubSubType.DISPATCH, new DispatchMessage(room, packet, entry.getKey()));
@@ -72,13 +93,16 @@ public class BroadcastOperations implements ClientOperations {
 
     @Override
     public void send(Packet packet) {
+    	packet.setNsp(namespace);
         for (SocketIOClient client : clients) {
+        	log.debug("==Namespace:"+client.getNamespace().getName());
             client.send(packet);
         }
         dispatch(packet);
     }
 
     public <T> void send(Packet packet, BroadcastAckCallback<T> ackCallback) {
+    	packet.setNsp(namespace);
         for (SocketIOClient client : clients) {
             client.send(packet, ackCallback.createClientCallback(client));
         }
@@ -97,6 +121,7 @@ public class BroadcastOperations implements ClientOperations {
         packet.setSubType(PacketType.EVENT);
         packet.setName(name);
         packet.setData(Arrays.asList(data));
+        packet.setNsp(namespace);
 
         for (SocketIOClient client : clients) {
             if (client.getSessionId().equals(excludedClient.getSessionId())) {
@@ -113,6 +138,7 @@ public class BroadcastOperations implements ClientOperations {
         packet.setSubType(PacketType.EVENT);
         packet.setName(name);
         packet.setData(Arrays.asList(data));
+        packet.setNsp(namespace);
         send(packet);
     }
 

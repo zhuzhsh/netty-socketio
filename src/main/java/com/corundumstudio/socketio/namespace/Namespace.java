@@ -26,6 +26,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.corundumstudio.socketio.AckMode;
 import com.corundumstudio.socketio.AckRequest;
 import com.corundumstudio.socketio.BroadcastOperations;
@@ -55,7 +58,7 @@ import io.netty.util.internal.PlatformDependent;
  * @see com.corundumstudio.socketio.transport.NamespaceClient
  */
 public class Namespace implements SocketIONamespace {
-
+	private Logger log = LoggerFactory.getLogger(Namespace.class);
     public static final String DEFAULT_NAME = "";
 
     private final ScannerEngine engine = new ScannerEngine();
@@ -222,7 +225,7 @@ public class Namespace implements SocketIONamespace {
 
     @Override
     public BroadcastOperations getRoomOperations(String room) {
-        return new BroadcastOperations(getRoomClients(room), storeFactory);
+        return new BroadcastOperations(name,room,getRoomClients(room), storeFactory);
     }
 
     @Override
@@ -266,8 +269,9 @@ public class Namespace implements SocketIONamespace {
     }
 
     public void dispatch(String room, Packet packet) {
-        Iterable<SocketIOClient> clients = getRoomClients(room);
-
+        log.debug("==处理Namespace {} 房间【{}】转发消息{}",name,room,packet.getData().toString());
+    	Iterable<SocketIOClient> clients = getRoomClients(room);
+    	//log.debug("====房间【{}】当前连接数:{}",room,roomClients.get(room).size());
         for (SocketIOClient socketIOClient : clients) {
             socketIOClient.send(packet);
         }
